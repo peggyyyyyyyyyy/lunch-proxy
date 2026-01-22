@@ -18,5 +18,7 @@ app.get('/api/restaurants', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`伺服器跑在埠號 ${PORT}`));
+const PORT = process.env.PORT || 8080; // 改為 8080 或使用環境變數
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`伺服器成功啟動於埠號 ${PORT}`);
+});
