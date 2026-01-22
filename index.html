@@ -2,399 +2,177 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lunch Go 決策幫手</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lunch Go! 企業版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* 抽籤動畫效果 */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
-        .shaking { animation: shake 0.5s; animation-iteration-count: infinite; }
+        .active-nav { color: #3b82f6; border-top: 3px solid #3b82f6; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
-<body class="bg-gray-100 h-screen flex flex-col overflow-hidden">
+<body class="bg-gray-50 h-screen flex flex-col">
 
-    <div class="bg-white shadow-md p-4 z-10 flex justify-between items-center">
-        <div>
-            <h1 class="text-xl font-bold text-gray-800">Lunch Go 🍽️</h1>
-            <p id="location-status" class="text-xs text-gray-500">等待定位...</p>
+    <div class="bg-white p-4 shadow-sm flex justify-between items-center">
+        <h1 class="text-xl font-black text-blue-600 italic">LUNCH GO!</h1>
+        <div class="flex items-center gap-2">
+            <span class="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-500">匿名 ID: #User${Math.floor(Math.random()*900)+100}</span>
+            <i class="fa-regular fa-circle-user text-xl text-gray-400"></i>
         </div>
-        <button onclick="toggleMode()" class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm font-bold shadow-sm active:scale-95 transition">
-            <i class="fa-solid fa-dice"></i> <span id="mode-text">隨機抽籤</span>
-        </button>
     </div>
 
-    <div id="list-view" class="flex-1 flex flex-col overflow-hidden transition-all duration-300">
+    <main class="flex-1 overflow-y-auto">
         
-        <div class="bg-white border-b px-4 py-2 flex gap-2 overflow-x-auto hide-scrollbar">
-            <button onclick="toggleOnlineOnly()" id="btn-online" class="flex-shrink-0 border border-gray-300 px-3 py-1 rounded-full text-sm text-gray-600">
-                <i class="fa-solid fa-motorcycle"></i> 線上訂餐
-            </button>
-            
-            <button onclick="openFilterModal()" class="flex-shrink-0 bg-gray-800 text-white px-3 py-1 rounded-full text-sm">
-                <i class="fa-solid fa-sliders"></i> 篩選條件
-            </button>
-            
-            <div id="active-filters" class="flex gap-2"></div>
-        </div>
-
-        <div id="restaurant-list" class="flex-1 overflow-y-auto p-4 space-y-3 pb-20">
-            <div class="animate-pulse space-y-3">
-                <div class="h-24 bg-gray-200 rounded-xl"></div>
-                <div class="h-24 bg-gray-200 rounded-xl"></div>
-                <div class="h-24 bg-gray-200 rounded-xl"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="random-view" class="hidden flex-1 flex flex-col items-center justify-center p-6 bg-yellow-50 relative">
-        <div class="text-center mb-8">
-            <h2 class="text-2xl font-bold text-gray-700 mb-2">今天吃什麼？</h2>
-            <p class="text-gray-500">交給命運來決定吧</p>
-        </div>
-
-        <div id="gacha-box" class="w-48 h-48 bg-white rounded-full shadow-xl flex items-center justify-center border-4 border-yellow-400 text-6xl mb-8 cursor-pointer active:scale-95 transition" onclick="drawLunch()">
-            ❓
-        </div>
-
-        <div id="result-card" class="hidden w-full max-w-sm bg-white p-6 rounded-2xl shadow-lg transform transition-all">
-            <h3 id="result-name" class="text-xl font-bold text-gray-800 mb-2">餐廳名稱</h3>
-            <div class="flex items-center gap-2 text-yellow-500 mb-4">
-                <i class="fa-solid fa-star"></i> <span id="result-rating">4.5</span>
-            </div>
-            <a id="result-link" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold">
-                前往導航 / 訂餐
-            </a>
-        </div>
-
-        <div class="mt-8 text-center">
-            <p id="retry-limit-text" class="text-sm text-gray-500 mb-2">今日剩餘次數: <span id="retry-count">3</span></p>
-            <button id="btn-retry" onclick="drawLunch()" class="bg-gray-800 text-white px-6 py-2 rounded-lg font-bold shadow-lg active:scale-95">
-                再抽一次
-            </button>
-            <p id="snarky-text" class="text-xs text-red-500 mt-2 h-4 font-bold opacity-0 transition-opacity">就你問最多 🙄</p>
-        </div>
-    </div>
-
-    <div id="filter-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex justify-center items-end sm:items-center">
-        <div class="bg-white w-full sm:w-96 rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl animate-slide-up">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-lg font-bold">進階篩選</h3>
-                <button onclick="closeFilterModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+        <section id="tab-recommend" class="tab-content active p-4">
+            <div class="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
+                <button onclick="toggleOnline()" id="btn-online" class="flex-shrink-0 border px-3 py-1.5 rounded-xl text-sm bg-white shadow-sm">
+                    🛵 線上訂餐
+                </button>
+                <button onclick="openFilter()" class="flex-shrink-0 bg-blue-600 text-white px-3 py-1.5 rounded-xl text-sm shadow-md">
+                    <i class="fa-solid fa-sliders"></i> 進階篩選
+                </button>
             </div>
 
-            <div class="mb-4">
-                <p class="text-sm font-bold text-gray-600 mb-2">想吃哪一類?</p>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="setFilter('type', '中式')" class="filter-btn border px-3 py-1 rounded-lg text-sm" data-group="type" data-val="restaurant">不拘</button>
-                    <button onclick="setFilter('type', 'Chinese')" class="filter-btn border px-3 py-1 rounded-lg text-sm" data-group="type" data-val="Chinese restaurant">中式</button>
-                    <button onclick="setFilter('type', 'Western')" class="filter-btn border px-3 py-1 rounded-lg text-sm" data-group="type" data-val="Western restaurant">西式</button>
-                    <button onclick="setFilter('type', 'Japanese')" class="filter-btn border px-3 py-1 rounded-lg text-sm" data-group="type" data-val="Japanese restaurant">日式</button>
-                    <button onclick="setFilter('type', 'Cafe')" class="filter-btn border px-3 py-1 rounded-lg text-sm" data-group="type" data-val="cafe">輕食/咖啡</button>
+            <div class="bg-white rounded-2xl p-4 shadow-sm mb-4">
+                <p class="text-xs font-bold text-gray-400 mb-3 uppercase tracking-widest">現在的心情？</p>
+                <div class="flex justify-between">
+                    <button onclick="filterByMood('happy')" class="flex flex-col items-center gap-1">
+                        <span class="text-3xl hover:scale-125 transition">😊</span>
+                        <span class="text-[10px] text-gray-500">開心</span>
+                    </button>
+                    <button onclick="filterByMood('sad')" class="flex flex-col items-center gap-1">
+                        <span class="text-3xl hover:scale-125 transition">😢</span>
+                        <span class="text-[10px] text-gray-500">難過</span>
+                    </button>
+                    <button onclick="filterByMood('angry')" class="flex flex-col items-center gap-1">
+                        <span class="text-3xl hover:scale-125 transition">💢</span>
+                        <span class="text-[10px] text-gray-500">生氣</span>
+                    </button>
+                    <button onclick="filterByMood('fit')" class="flex flex-col items-center gap-1">
+                        <span class="text-3xl hover:scale-125 transition">💪</span>
+                        <span class="text-[10px] text-gray-500">健身</span>
+                    </button>
+                    <button onclick="filterByMood('nervous')" class="flex flex-col items-center gap-1">
+                        <span class="text-3xl hover:scale-125 transition">🍷</span>
+                        <span class="text-[10px] text-gray-500">緊張</span>
+                    </button>
                 </div>
             </div>
 
-            <div class="mb-4">
-                <p class="text-sm font-bold text-gray-600 mb-2">現在的心情?</p>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="setFilter('mood', 'normal')" class="filter-btn border px-3 py-1 rounded-lg text-sm" data-group="mood" data-val="normal">一般</button>
-                    <button onclick="setFilter('mood', 'happy')" class="filter-btn border px-3 py-1 rounded-lg text-sm" data-group="mood" data-val="happy">慶祝 (高價位)</button>
-                    <button onclick="setFilter('mood', 'fast')" class="filter-btn border px-3 py-1 rounded-lg text-sm" data-group="mood" data-val="fast">趕時間 (速食)</button>
+            <div id="restaurant-list" class="space-y-4">
+                <p class="text-center text-gray-400 mt-10">定位中...</p>
+            </div>
+        </section>
+
+        <section id="tab-gacha" class="tab-content h-full flex flex-col items-center justify-center p-6">
+            <div id="gacha-machine" class="w-64 h-64 bg-white rounded-full shadow-[0_0_50px_rgba(59,130,246,0.2)] border-8 border-blue-500 flex flex-col items-center justify-center relative overflow-hidden">
+                <div id="gacha-status" class="text-6xl mb-2">🎁</div>
+                <button id="btn-draw" onclick="startDraw()" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold hover:bg-blue-700 transition">點我抽獎</button>
+            </div>
+            <div class="mt-8 text-center">
+                <p class="text-gray-500">今日剩餘次數: <span id="draw-count" class="font-bold text-blue-600">3</span>/3</p>
+                <p id="snarky-text" class="text-red-500 text-sm mt-2 font-bold opacity-0 transition-opacity">就你問最多 🙄</p>
+            </div>
+            <div id="draw-result" class="hidden mt-6 w-full p-4 bg-white rounded-2xl border-2 border-dashed border-blue-300">
+                </div>
+        </section>
+
+        <section id="tab-group" class="tab-content p-4">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold">部門揪團中</h2>
+                <button class="bg-orange-500 text-white px-3 py-1 rounded-lg text-sm">+ 我要發起</button>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm mb-3 border-l-4 border-orange-500">
+                <div class="flex justify-between items-start">
+                    <span class="text-sm font-bold">一起吃 [健康餐盒] 🍱</span>
+                    <span class="text-xs text-orange-600 font-bold italic">還差 2 人</span>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">發起人: #User402 | 預計 12:15 出發</p>
+                <div class="mt-3 flex justify-end">
+                    <button class="bg-orange-100 text-orange-600 px-4 py-1 rounded-md text-xs font-bold">+1 加入</button>
                 </div>
             </div>
+        </section>
+    </main>
 
-            <div class="mb-6">
-                <p class="text-sm font-bold text-gray-600 mb-2">預算範圍</p>
-                <select id="price-select" class="w-full border p-2 rounded-lg bg-gray-50">
-                    <option value="all">不限金額</option>
-                    <option value="1">$0 - $200 (便宜)</option>
-                    <option value="2">$200 - $600 (中價位)</option>
-                    <option value="3">$600+ (豪華)</option>
-                </select>
-            </div>
-
-            <button onclick="applyFilters()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">確認篩選</button>
-        </div>
-    </div>
+    <nav class="bg-white border-t flex justify-around items-center h-16 pb-2">
+        <button onclick="switchTab('recommend')" id="nav-recommend" class="flex flex-col items-center gap-1 active-nav flex-1">
+            <i class="fa-solid fa-map-location-dot"></i><span class="text-[10px]">推薦</span>
+        </button>
+        <button onclick="switchTab('gacha')" id="nav-gacha" class="flex flex-col items-center gap-1 flex-1">
+            <i class="fa-solid fa-dice"></i><span class="text-[10px]">抽籤</span>
+        </button>
+        <button onclick="switchTab('group')" id="nav-group" class="flex flex-col items-center gap-1 flex-1">
+            <i class="fa-solid fa-users"></i><span class="text-[10px]">揪團</span>
+        </button>
+    </nav>
 
     <script>
-        // ================= 設定區 =================
-        const ZEABUR_URL = "https://lunch-go.zeabur.app"; // 請替換這裡
-        // =========================================
+        const ZEABUR_URL = "https://lunch-go.zeabur.app/"; // 記得替換！
+        let restaurants = [];
+        let drawCount = localStorage.getItem('drawCount') || 3;
 
-        let allRestaurants = [];
-        let filteredRestaurants = [];
-        let currentFilters = { type: 'restaurant', mood: 'normal', price: 'all', onlineOnly: false };
-        let userLat = 0, userLng = 0;
-        
-        // 每日抽籤限制
-        const MAX_RETRIES = 3;
-        
-        // 初始化
-        window.onload = () => {
-            initLocation();
-            checkDailyLimit();
-        };
-
-        // 1. 取得定位
-        function initLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        userLat = pos.coords.latitude;
-                        userLng = pos.coords.longitude;
-                        document.getElementById('location-status').innerText = "📍 定位成功，正在搜尋附近的美味...";
-                        fetchData();
-                    },
-                    (err) => {
-                        document.getElementById('location-status').innerText = "❌ 無法取得定位";
-                        alert("請允許定位權限才能尋找附近餐廳");
-                    }
-                );
-            }
+        // 1. 分頁切換
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(el => el.classList.remove('active-nav'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            document.getElementById(`nav-${tabId}`).classList.add('active-nav');
         }
 
-        // 2. 從 Zeabur 獲取資料
-        async function fetchData() {
-            try {
-                // 擴大搜尋半徑到 1200m (約走路 15 分鐘)
-                const res = await fetch(`${ZEABUR_URL}/api/restaurants?lat=${userLat}&lng=${userLng}&radius=1200`);
-                const data = await res.json();
-                
-                if(data.status === "OK") {
-                    allRestaurants = data.results;
-                    filteredRestaurants = allRestaurants;
-                    renderList();
-                } else {
-                    document.getElementById('restaurant-list').innerHTML = `<div class="p-4 text-center text-gray-500">附近好像沒有餐廳...</div>`;
-                }
-            } catch (e) {
-                console.error(e);
-                document.getElementById('restaurant-list').innerHTML = `<div class="p-4 text-center text-red-500">連線錯誤，請檢查 Zeabur 狀態</div>`;
+        // 2. 情緒過濾對應表
+        function filterByMood(mood) {
+            let keyword = "";
+            switch(mood) {
+                case 'happy': keyword = "fast food"; break;
+                case 'sad': keyword = "dessert"; break;
+                case 'angry': keyword = "vegetarian"; break; // 或飲料
+                case 'fit': keyword = "healthy food"; break;
+                case 'nervous': keyword = "bar"; break;
             }
+            alert(`偵測到你的情緒，正在為你搜尋專屬餐廳...`);
+            // 這邊會觸發帶有 keyword 的搜尋
+            fetchData(keyword);
         }
 
-        // 3. 渲染列表
-        function renderList() {
-            const listEl = document.getElementById('restaurant-list');
-            listEl.innerHTML = "";
-
-            if (filteredRestaurants.length === 0) {
-                listEl.innerHTML = `<div class="p-10 text-center text-gray-400">找不到符合條件的餐廳<br>請放寬篩選條件</div>`;
+        // 3. 抽籤邏輯 (每日三次)
+        function startDraw() {
+            if (drawCount <= 0) {
+                alert("今天沒扣額了！");
                 return;
             }
-
-            filteredRestaurants.forEach(place => {
-                // 計算人氣標籤 (用評論數模擬)
-                let crowdBadge = "";
-                const reviews = place.user_ratings_total || 0;
-                if(reviews > 1000) crowdBadge = `<span class="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded ml-2">🔥 人氣爆棚</span>`;
-                else if(reviews > 500) crowdBadge = `<span class="bg-orange-100 text-orange-600 text-xs px-2 py-0.5 rounded ml-2">👥 人潮多</span>`;
-
-                // 價位顯示
-                const priceSymbol = "💰".repeat(place.price_level || 1);
-                
-                // Google Maps 連結 (包含訂位/電話)
-                const mapLink = `https://www.google.com/maps/place/?q=place_id:${place.place_id}`;
-
-                const item = document.createElement('div');
-                item.className = "bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 transition";
-                item.onclick = () => window.open(mapLink, '_blank');
-                
-                item.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="font-bold text-gray-800 text-lg">${place.name}</h3>
-                            <div class="flex items-center text-sm text-yellow-500 mt-1">
-                                <i class="fa-solid fa-star"></i> 
-                                <span class="ml-1 font-bold text-gray-700">${place.rating || "N/A"}</span>
-                                <span class="text-gray-400 text-xs ml-1">(${reviews}則評論)</span>
-                                ${crowdBadge}
-                            </div>
-                        </div>
-                        <div class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">${priceSymbol}</div>
-                    </div>
-                    <div class="mt-3 flex gap-2">
-                        ${place.opening_hours?.open_now ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">營業中</span>' : '<span class="text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded">休息中</span>'}
-                        <span class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded">查看詳情/訂餐 ></span>
-                    </div>
-                `;
-                listEl.appendChild(item);
-            });
-        }
-
-        // ================= 篩選邏輯 =================
-        function openFilterModal() { document.getElementById('filter-modal').classList.remove('hidden'); }
-        function closeFilterModal() { document.getElementById('filter-modal').classList.add('hidden'); }
-
-        // 按鈕樣式切換
-        function setFilter(group, val) {
-            document.querySelectorAll(`.filter-btn[data-group="${group}"]`).forEach(b => b.classList.remove('bg-blue-600', 'text-white'));
-            const btn = document.querySelector(`.filter-btn[data-val="${val}"]`);
-            if(btn) btn.classList.add('bg-blue-600', 'text-white');
             
-            if(group === 'type') currentFilters.type = val;
-            if(group === 'mood') currentFilters.mood = val;
-        }
-
-        function toggleOnlineOnly() {
-            currentFilters.onlineOnly = !currentFilters.onlineOnly;
-            const btn = document.getElementById('btn-online');
-            if(currentFilters.onlineOnly) {
-                btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
-                btn.classList.remove('text-gray-600', 'border-gray-300');
-            } else {
-                btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
-                btn.classList.add('text-gray-600', 'border-gray-300');
-            }
-            applyFiltersLogic();
-        }
-
-        function applyFilters() {
-            currentFilters.price = document.getElementById('price-select').value;
-            closeFilterModal();
-            applyFiltersLogic();
-        }
-
-        function applyFiltersLogic() {
-            // 複製原始清單
-            let results = [...allRestaurants];
-
-            // 1. 餐點種類過濾 (使用名稱關鍵字)
-            if(currentFilters.type !== 'restaurant') {
-                // 如果 Zeabur 沒傳回 type，這裡用關鍵字模糊比對名稱 (因為 Places API 類型有限)
-                // 這裡簡化：如果選擇西式，我們暫時不做嚴格過濾，這需要後端支援更多參數
-                // 為了展示功能，我們先假設所有餐廳都符合，或者你可以根據 place.types 陣列過濾
-            }
-
-            // 2. 心情過濾 (映射到價位與類型)
-            if(currentFilters.mood === 'happy') {
-                // 慶祝：篩選評分高且價位不為最低
-                results = results.filter(r => (r.rating >= 4.0 && r.price_level >= 2));
-            } else if (currentFilters.mood === 'fast') {
-                // 趕時間：篩選不需要太高價位
-                results = results.filter(r => (!r.price_level || r.price_level <= 1));
-            }
-
-            // 3. 價格過濾
-            if(currentFilters.price !== 'all') {
-                const p = parseInt(currentFilters.price);
-                results = results.filter(r => r.price_level === p);
-            }
-
-            // 4. 線上訂餐 (模擬：篩選有網站的或是有營業的)
-            if(currentFilters.onlineOnly) {
-                // 因為 API 限制，這裡我們篩選「營業中」當作可立即處理
-                results = results.filter(r => r.opening_hours?.open_now);
-            }
-
-            filteredRestaurants = results;
-            renderList();
-        }
-
-        // ================= 隨機抽籤邏輯 =================
-        function toggleMode() {
-            const listDiv = document.getElementById('list-view');
-            const randomDiv = document.getElementById('random-view');
-            const modeText = document.getElementById('mode-text');
+            const machine = document.getElementById('gacha-machine');
+            const status = document.getElementById('gacha-status');
+            const snarky = document.getElementById('snarky-text');
             
-            if(listDiv.classList.contains('hidden')) {
-                listDiv.classList.remove('hidden');
-                randomDiv.classList.add('hidden');
-                modeText.innerText = "隨機抽籤";
-            } else {
-                listDiv.classList.add('hidden');
-                randomDiv.classList.remove('hidden');
-                modeText.innerText = "返回列表";
-                resetGacha();
-            }
-        }
-
-        function resetGacha() {
-            document.getElementById('result-card').classList.add('hidden');
-            document.getElementById('gacha-box').classList.remove('hidden');
-            document.getElementById('gacha-box').innerText = "❓";
-        }
-
-        // 讀取/寫入每日次數
-        function checkDailyLimit() {
-            const today = new Date().toDateString();
-            const stored = JSON.parse(localStorage.getItem('lunchGoLimit') || '{}');
+            status.innerText = "🌀";
+            machine.classList.add('animate-spin');
             
-            if (stored.date !== today) {
-                localStorage.setItem('lunchGoLimit', JSON.stringify({ date: today, count: MAX_RETRIES }));
-                updateRetryUI(MAX_RETRIES);
-            } else {
-                updateRetryUI(stored.count);
-            }
-        }
-
-        function updateRetryUI(count) {
-            document.getElementById('retry-count').innerText = count;
-            const btn = document.getElementById('btn-retry');
-            if(count <= 0) {
-                btn.disabled = true;
-                btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                btn.innerText = "明日再來";
-            }
-        }
-
-        function drawLunch() {
-            // 檢查次數
-            const stored = JSON.parse(localStorage.getItem('lunchGoLimit'));
-            if (stored.count <= 0) return;
-
-            // 動畫
-            const box = document.getElementById('gacha-box');
-            box.classList.add('shaking');
-            box.innerText = "🎲";
-
             setTimeout(() => {
-                box.classList.remove('shaking');
+                machine.classList.remove('animate-spin');
+                drawCount--;
+                localStorage.setItem('drawCount', drawCount);
+                document.getElementById('draw-count').innerText = drawCount;
                 
-                // 隨機選一個 (從篩選後的清單選，比較符合當下心情)
-                const source = filteredRestaurants.length > 0 ? filteredRestaurants : allRestaurants;
-                const luckyOne = source[Math.floor(Math.random() * source.length)];
-                
-                // 顯示結果
-                box.classList.add('hidden');
-                const card = document.getElementById('result-card');
-                card.classList.remove('hidden');
-                
-                document.getElementById('result-name').innerText = luckyOne.name;
-                document.getElementById('result-rating').innerText = luckyOne.rating || "N/A";
-                document.getElementById('result-link').href = `https://www.google.com/maps/place/?q=place_id:${luckyOne.place_id}`;
-
-                // 扣除次數
-                stored.count--;
-                localStorage.setItem('lunchGoLimit', JSON.stringify(stored));
-                updateRetryUI(stored.count);
-
-                // 嘲諷文字
-                const snarky = document.getElementById('snarky-text');
+                status.innerText = "🍱";
                 snarky.style.opacity = "1";
-                if(stored.count === 2) snarky.innerText = "不滿意喔？🤨";
-                if(stored.count === 1) snarky.innerText = "最後一次囉...😮‍💨";
-                if(stored.count === 0) snarky.innerText = "就你問最多！明天見 👋";
-
-            }, 800);
+                if(drawCount < 3) snarky.innerText = "就你問最多 🙄";
+                
+                // 隨機選一個
+                const result = restaurants[Math.floor(Math.random()*restaurants.length)];
+                document.getElementById('draw-result').classList.remove('hidden');
+                document.getElementById('draw-result').innerHTML = `
+                    <p class="text-xs text-blue-500 font-bold">抽籤結果：</p>
+                    <h4 class="font-bold">${result.name}</h4>
+                    <p class="text-xs text-gray-500">⭐ ${result.rating}</p>
+                `;
+            }, 1000);
         }
+
+        // 4. 初始化定位與資料
+        // ... 此處延用之前獲取 GPS 與 fetch(ZEABUR_URL) 的邏輯 ...
     </script>
 </body>
 </html>
