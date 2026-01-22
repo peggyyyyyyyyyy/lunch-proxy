@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>午餐隨機搜</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-5">
+    <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
+        <h1 class="text-2xl font-bold mb-4">📍 附近 500m 餐廳</h1>
+        <div id="status" class="text-blue-500 mb-4">正在取得位置...</div>
+        <ul id="restaurant-list" class="space-y-2"></ul>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const listEl = document.getElementById('restaurant-list');
+
+        // Zeabur 給你的網址 (最後面不要加斜線)
+        const ZEABUR_URL = "https://lunch-go.zeabur.app"; 
+
+        window.onload = () => {
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const { latitude, longitude } = pos.coords;
+                statusEl.innerText = `🔍 正在透過 Zeabur 搜尋...`;
+
+                try {
+                    // 呼叫你的 Zeabur 後端
+                    const response = await fetch(`${ZEABUR_URL}/api/restaurants?lat=${latitude}&lng=${longitude}`);
+                    const data = await response.json();
+
+                    if (data.status === "OK") {
+                        statusEl.innerText = `✅ 找到 ${data.results.length} 間餐廳`;
+                        listEl.innerHTML = data.results.map(place => `
+                            <li class="border-b py-2">
+                                <div class="font-bold">${place.name}</div>
+                                <div class="text-sm text-gray-500">⭐ ${place.rating || '無'} | ${place.vicinity}</div>
+                            </li>
+                        `).join('');
+                    } else {
+                        statusEl.innerText = `❌ API 錯誤: ${data.status}`;
+                    }
+                } catch (err) {
+                    statusEl.innerText = `❌ 無法連線至後端伺服器`;
+                }
+            }, () => {
+                statusEl.innerText = "❌ 請開啟定位權限";
+            });
+        };
+    </script>
+</body>
+</html>
