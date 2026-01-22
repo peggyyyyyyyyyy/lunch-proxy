@@ -18,7 +18,8 @@
             100% { transform: translate(1px, 1px); }
         }
         .shaking { animation: shake 0.2s infinite; }
-        #gacha-box { transition: all 0.3s ease; }
+        /* 選取狀態顏色 */
+        .tag-selected { background-color: #3b82f6 !important; color: white !important; border-color: #3b82f6 !important; }
     </style>
 </head>
 <body class="bg-gray-50 h-screen flex flex-col overflow-hidden text-gray-800">
@@ -31,80 +32,72 @@
     <main class="flex-1 overflow-y-auto no-scrollbar pb-20">
         
         <section id="tab-recommend" class="tab-content active p-4">
-            <div id="location-status" class="text-[10px] text-gray-400 mb-3 text-center">正在抓取您的位置...</div>
+            <div id="location-status" class="text-[10px] text-gray-400 mb-4 text-center">📍 搜尋範圍：步行 20 分鐘內</div>
             
-            <div class="bg-white rounded-2xl p-4 shadow-sm mb-4 border border-gray-100">
-                <div class="flex justify-between items-center">
-                    <button onclick="filterByMood('happy')" class="flex flex-col items-center gap-1"><span class="text-3xl">😊</span><span class="text-[10px] text-gray-400">開心</span></button>
-                    <button onclick="filterByMood('sad')" class="flex flex-col items-center gap-1"><span class="text-3xl">😢</span><span class="text-[10px] text-gray-400">難過</span></button>
-                    <button onclick="filterByMood('angry')" class="flex flex-col items-center gap-1"><span class="text-3xl">💢</span><span class="text-[10px] text-gray-400">生氣</span></button>
-                    <button onclick="filterByMood('fit')" class="flex flex-col items-center gap-1"><span class="text-3xl">💪</span><span class="text-[10px] text-gray-400">健身</span></button>
-                    <button onclick="filterByMood('nervous')" class="flex flex-col items-center gap-1"><span class="text-3xl">🍷</span><span class="text-[10px] text-gray-400">緊張</span></button>
-                </div>
+            <div class="flex gap-2 mb-6">
+                <button id="btn-online" onclick="toggleOnline()" class="flex-1 bg-white border border-gray-200 py-3 rounded-2xl text-xs font-bold shadow-sm transition-all">🛵 線上訂餐優先</button>
+                <button onclick="openFilter()" class="flex-1 bg-blue-600 text-white py-3 rounded-2xl text-xs font-bold shadow-lg"><i class="fa-solid fa-sliders mr-2"></i>進階篩選</button>
             </div>
 
-            <div class="flex gap-2 mb-4">
-                <button id="btn-online" onclick="toggleOnline()" class="flex-1 bg-white border border-gray-200 py-2.5 rounded-xl text-xs font-bold shadow-sm transition">🛵 線上訂餐優先</button>
-                <button onclick="openFilter()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-xs font-bold shadow-sm"><i class="fa-solid fa-sliders mr-1"></i> 進階篩選</button>
+            <div id="restaurant-list" class="space-y-3">
+                <div class="text-center py-20 text-gray-300 text-sm">正在載入附近美味...</div>
             </div>
-
-            <div id="restaurant-list" class="space-y-3"></div>
         </section>
 
         <section id="tab-gacha" class="tab-content p-6 text-center">
             <h2 class="text-2xl font-black mt-10">吃什麼好呢？</h2>
-            <p class="text-xs text-gray-400 mb-10 tracking-widest uppercase">讓系統為您解決難題</p>
+            <p class="text-xs text-gray-400 mb-10 tracking-widest">讓系統為您解決難題</p>
             
-            <div id="gacha-box" class="w-full h-48 bg-white border-4 border-blue-500 rounded-3xl shadow-xl flex flex-col items-center justify-center p-6 mb-10">
+            <div id="gacha-box" onclick="goToLuckyRes()" class="w-full h-52 bg-white border-4 border-blue-500 rounded-3xl shadow-xl flex flex-col items-center justify-center p-6 mb-10 cursor-pointer active:scale-95 transition-transform">
                 <div id="gacha-result-name" class="text-2xl font-black text-blue-600 mb-2">? ? ?</div>
-                <div id="gacha-result-sub" class="text-sm text-gray-400 font-bold">點擊下方按鈕開始</div>
+                <div id="gacha-result-sub" class="text-xs text-gray-400 font-bold italic">點擊下方按鈕開始</div>
+                <div id="gacha-click-hint" class="hidden mt-4 text-[10px] bg-blue-50 text-blue-500 px-3 py-1 rounded-full animate-pulse">點擊框框查看詳情 ➔</div>
             </div>
             
             <div class="space-y-4">
                 <p class="text-xs text-gray-400 font-bold">今日餘額: <span id="draw-count" class="text-blue-600">3</span> / 3</p>
-                <button id="btn-draw" onclick="handleDraw()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition">
-                    隨機推薦餐廳
-                </button>
-                <div id="snarky-text" class="text-red-500 text-xs font-bold opacity-0 transition-opacity h-4">就你問最多 🙄</div>
+                <button id="btn-draw" onclick="handleDraw()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition">隨機推薦餐廳</button>
+                <div id="snarky-text" class="text-red-500 text-[10px] font-bold opacity-0 transition-opacity h-4">就你問最多 🙄</div>
             </div>
         </section>
 
         <section id="tab-group" class="tab-content p-4">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-black">部門揪團區</h2>
-                <button class="bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg">+ 我要發起</button>
-            </div>
-            <div class="bg-white p-5 rounded-2xl shadow-sm border-l-8 border-orange-500 mb-4">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="bg-orange-100 text-orange-600 text-[10px] px-2 py-1 rounded font-bold italic">即將截止 11:30</span>
-                </div>
-                <h3 class="font-bold text-lg">大家一起訂 [健康餐盒]</h3>
-                <p class="text-xs text-gray-400 mt-1">此功能串接中，敬請期待...</p>
+            <h2 class="text-xl font-black mb-6">部門揪團區</h2>
+            <div class="bg-white p-8 rounded-3xl text-center border-2 border-dashed border-gray-200">
+                <i class="fa-solid fa-comments-dollar text-4xl text-gray-200 mb-4"></i>
+                <p class="text-sm text-gray-400">揪團與評論功能開發中<br>即將串接資料庫...</p>
             </div>
         </section>
     </main>
 
-    <div id="filter-modal" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-end">
-        <div class="bg-white w-full rounded-t-3xl p-6 pb-10">
-            <h3 class="font-black text-lg mb-4">篩選設定</h3>
-            <div class="mb-4">
-                <p class="text-xs font-bold text-gray-400 mb-2 uppercase">餐點種類</p>
-                <div class="flex flex-wrap gap-2" id="type-tags">
-                    <button onclick="setType('Chinese')" class="px-4 py-2 rounded-xl border text-xs font-bold">中式</button>
-                    <button onclick="setType('Japanese')" class="px-4 py-2 rounded-xl border text-xs font-bold">日式</button>
-                    <button onclick="setType('Pizza')" class="px-4 py-2 rounded-xl border text-xs font-bold">披薩/西式</button>
-                    <button onclick="setType('Cafe')" class="px-4 py-2 rounded-xl border text-xs font-bold">咖啡/輕食</button>
-                </div>
+    <div id="filter-modal" class="fixed inset-0 bg-black/70 z-[60] hidden flex items-end">
+        <div class="bg-white w-full rounded-t-[40px] p-8 pb-12 animate-slide-up">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-black text-xl">進階篩選</h3>
+                <button onclick="resetFilters()" class="text-xs text-blue-500 font-bold underline">重設</button>
             </div>
+            
             <div class="mb-6">
-                <p class="text-xs font-bold text-gray-400 mb-2 uppercase">價格區間</p>
-                <div class="flex gap-2">
-                    <button onclick="setPrice(1)" class="flex-1 py-2 rounded-xl border text-xs font-bold">$ (平價)</button>
-                    <button onclick="setPrice(2)" class="flex-1 py-2 rounded-xl border text-xs font-bold">$$ (中價)</button>
-                    <button onclick="setPrice(3)" class="flex-1 py-2 rounded-xl border text-xs font-bold">$$$ (豪華)</button>
+                <p class="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest">餐點種類 (可複選)</p>
+                <div class="flex flex-wrap gap-2" id="type-tags">
+                    <button onclick="toggleTypeTag(this, '中式')" class="type-tag px-4 py-2 rounded-xl border border-gray-100 bg-gray-50 text-xs font-bold transition-all">中式</button>
+                    <button onclick="toggleTypeTag(this, '日式')" class="type-tag px-4 py-2 rounded-xl border border-gray-100 bg-gray-50 text-xs font-bold transition-all">日式</button>
+                    <button onclick="toggleTypeTag(this, '西式')" class="type-tag px-4 py-2 rounded-xl border border-gray-100 bg-gray-50 text-xs font-bold transition-all">西式</button>
+                    <button onclick="toggleTypeTag(this, '甜點')" class="type-tag px-4 py-2 rounded-xl border border-gray-100 bg-gray-50 text-xs font-bold transition-all">甜點</button>
+                    <button onclick="toggleTypeTag(this, '健康餐')" class="type-tag px-4 py-2 rounded-xl border border-gray-100 bg-gray-50 text-xs font-bold transition-all">健康餐</button>
                 </div>
             </div>
-            <button onclick="closeFilter()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black">套用並搜尋</button>
+
+            <div class="mb-8">
+                <p class="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest">價格區間 (可複選)</p>
+                <div class="flex gap-2">
+                    <button onclick="togglePriceTag(this, '1')" class="price-tag flex-1 py-3 rounded-xl border border-gray-100 bg-gray-50 text-xs font-bold transition-all">$</button>
+                    <button onclick="togglePriceTag(this, '2')" class="price-tag flex-1 py-3 rounded-xl border border-gray-100 bg-gray-50 text-xs font-bold transition-all">$$</button>
+                    <button onclick="togglePriceTag(this, '3')" class="price-tag flex-1 py-3 rounded-xl border border-gray-100 bg-gray-50 text-xs font-bold transition-all">$$$</button>
+                </div>
+            </div>
+
+            <button onclick="applyFilters()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">套用條件並搜尋</button>
         </div>
     </div>
 
@@ -115,9 +108,10 @@
     </nav>
 
     <script>
-        const ZEABUR_URL = "https://lunch-go.zeabur.app"; // 請替換
+        const ZEABUR_URL = "https://lunch-go.zeabur.app"; 
         let allPlaces = [], drawLimit = 3, isOnlineOnly = false;
-        let currentLat, currentLng, selectedType = "", selectedPrice = "";
+        let currentLat, currentLng, luckyPlace = null;
+        let selectedTypes = [], selectedPrices = [];
 
         window.onload = () => {
             document.getElementById('user-id').innerText = `#User${Math.floor(Math.random()*899)+100}`;
@@ -135,89 +129,139 @@
             navigator.geolocation.getCurrentPosition(pos => {
                 currentLat = pos.coords.latitude;
                 currentLng = pos.coords.longitude;
-                document.getElementById('location-status').innerText = "📍 步行 20 分鐘路程搜尋中";
                 fetchData();
+            }, () => {
+                document.getElementById('location-status').innerText = "❌ 定位失敗，請開啟 GPS";
             });
         }
 
-        async function fetchData(keyword = "") {
+        // 真實篩選連動
+        async function fetchData() {
             const listEl = document.getElementById('restaurant-list');
-            listEl.innerHTML = `<div class="text-center py-10 animate-pulse text-gray-400">🔍 搜尋美味中...</div>`;
+            listEl.innerHTML = `<div class="text-center py-20 animate-pulse text-gray-300 text-xs italic">正在挑選附近的美味...</div>`;
             
-            let url = `${ZEABUR_URL}/api/restaurants?lat=${currentLat}&lng=${currentLng}&radius=1600&keyword=${keyword || selectedType}`;
-            if (selectedPrice) url += `&price_level=${selectedPrice}`;
+            // 組合複選關鍵字 (中式+日式)
+            const keywordStr = selectedTypes.join(' ');
+            const priceStr = selectedPrices.join(','); // 雖然 Places API 限制較多，但我們先傳給後端處理
+
+            let url = `${ZEABUR_URL}/api/restaurants?lat=${currentLat}&lng=${currentLng}&radius=1600&keyword=${encodeURIComponent(keywordStr)}`;
+            if (selectedPrices.length > 0) url += `&price_level=${selectedPrices[0]}`; // Google API 通常一次收一個價格等級
 
             try {
                 const response = await fetch(url);
                 const data = await response.json();
                 if (data.status === "OK") {
                     allPlaces = data.results;
-                    applyFilterAndRender();
+                    renderList();
                 }
             } catch (err) { listEl.innerHTML = `<p class="text-center text-red-400 text-xs">連線失敗</p>`; }
         }
 
-        function applyFilterAndRender() {
+        function renderList() {
             let filtered = isOnlineOnly ? allPlaces.filter(p => p.opening_hours?.open_now) : allPlaces;
             const listEl = document.getElementById('restaurant-list');
-            if (filtered.length === 0) { listEl.innerHTML = `<div class="text-center py-10 text-gray-400 text-xs">找不到符合條件的餐廳 😢</div>`; return; }
+            
+            if (filtered.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-20 text-gray-400 text-xs">找不到符合條件的餐廳，請試著放寬篩選 😢</div>`;
+                return;
+            }
 
             listEl.innerHTML = filtered.map(place => `
-                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center active:bg-gray-50" onclick="window.open('https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.place_id}')">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center active:bg-gray-50 transition-colors" onclick="openMaps('${place.name}', '${place.place_id}')">
                     <div class="flex-1">
-                        <h4 class="font-bold text-gray-800">${place.name}</h4>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="text-xs text-yellow-500 font-bold font-mono">⭐ ${place.rating || '4.0'}</span>
-                            <span class="text-[10px] text-gray-400">| ${place.vicinity.substring(0,18)}</span>
+                        <h4 class="font-black text-gray-800 tracking-tight">${place.name}</h4>
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="text-xs text-yellow-500 font-black">⭐ ${place.rating || '4.0'}</span>
+                            <span class="text-[10px] text-gray-400 font-bold">| ${place.vicinity.substring(0,20)}</span>
                         </div>
                     </div>
-                    <i class="fa-solid fa-chevron-right text-gray-300 text-xs"></i>
+                    <div class="ml-4 w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 text-xs">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
                 </div>
             `).join('');
+        }
+
+        function openMaps(name, id) {
+            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${id}`);
+        }
+
+        // 篩選互動
+        function toggleTypeTag(btn, type) {
+            btn.classList.toggle('tag-selected');
+            if (selectedTypes.includes(type)) {
+                selectedTypes = selectedTypes.filter(t => t !== type);
+            } else {
+                selectedTypes.push(type);
+            }
+        }
+
+        function togglePriceTag(btn, price) {
+            // 價格通常較適合單選，但這裡配合需求做複選視覺，邏輯取最高
+            btn.classList.toggle('tag-selected');
+            if (selectedPrices.includes(price)) {
+                selectedPrices = selectedPrices.filter(p => p !== price);
+            } else {
+                selectedPrices.push(price);
+            }
+        }
+
+        function openFilter() { document.getElementById('filter-modal').classList.remove('hidden'); }
+        function closeFilter() { document.getElementById('filter-modal').classList.add('hidden'); }
+        
+        function resetFilters() {
+            selectedTypes = [];
+            selectedPrices = [];
+            document.querySelectorAll('.tag-selected').forEach(el => el.classList.remove('tag-selected'));
+        }
+
+        function applyFilters() {
+            closeFilter();
+            fetchData();
         }
 
         function toggleOnline() {
             isOnlineOnly = !isOnlineOnly;
             const btn = document.getElementById('btn-online');
-            btn.className = isOnlineOnly ? "flex-1 bg-green-500 text-white py-2.5 rounded-xl text-xs font-bold shadow-md transition" : "flex-1 bg-white border border-gray-200 py-2.5 rounded-xl text-xs font-bold shadow-sm transition";
-            applyFilterAndRender();
+            btn.classList.toggle('tag-selected');
+            renderList();
         }
 
-        function filterByMood(mood) {
-            const moodMap = { 'happy': '速食', 'sad': '甜點', 'angry': '飲料', 'fit': '健康餐', 'nervous': '酒' };
-            fetchData(moodMap[mood]);
-        }
-
-        function openFilter() { document.getElementById('filter-modal').classList.remove('hidden'); }
-        function closeFilter() { document.getElementById('filter-modal').classList.add('hidden'); fetchData(); }
-        function setType(t) { selectedType = t; alert(`已選擇: ${t}`); }
-        function setPrice(p) { selectedPrice = p; alert(`已設定價格等級: ${p}`); }
-
+        // 抽籤邏輯
         function handleDraw() {
             if (drawLimit <= 0 || allPlaces.length === 0) return;
             const box = document.getElementById('gacha-box');
             const nameEl = document.getElementById('gacha-result-name');
             const subEl = document.getElementById('gacha-result-sub');
+            const hintEl = document.getElementById('gacha-click-hint');
             const snarky = document.getElementById('snarky-text');
 
             box.classList.add('shaking');
-            nameEl.innerText = "🎲 抽獎中...";
-            subEl.innerText = "好期待啊~";
+            nameEl.innerText = "🎲 挑選中...";
+            subEl.innerText = "";
+            hintEl.classList.add('hidden');
 
             setTimeout(() => {
                 box.classList.remove('shaking');
                 drawLimit--;
                 document.getElementById('draw-count').innerText = drawLimit;
-                const lucky = allPlaces[Math.floor(Math.random() * allPlaces.length)];
+                luckyPlace = allPlaces[Math.floor(Math.random() * allPlaces.length)];
                 
-                nameEl.innerText = lucky.name;
-                subEl.innerText = `⭐ 評分: ${lucky.rating || 'N/A'} (點擊下方再抽一次)`;
+                nameEl.innerText = luckyPlace.name;
+                subEl.innerText = `⭐ 評分: ${luckyPlace.rating || 'N/A'}`;
+                hintEl.classList.remove('hidden');
                 
                 snarky.style.opacity = "1";
-                if(drawLimit === 2) snarky.innerText = "不滿意喔？🤨";
-                if(drawLimit === 1) snarky.innerText = "最後一次囉...😮‍💨";
-                if(drawLimit === 0) { snarky.innerText = "就你問最多！明天見 👋"; document.getElementById('btn-draw').disabled = true; document.getElementById('btn-draw').classList.add('bg-gray-300'); }
-            }, 1000);
+                if(drawLimit === 0) {
+                    snarky.innerText = "就你問最多！明天見 👋";
+                    document.getElementById('btn-draw').disabled = true;
+                    document.getElementById('btn-draw').classList.add('bg-gray-300');
+                }
+            }, 800);
+        }
+
+        function goToLuckyRes() {
+            if (luckyPlace) openMaps(luckyPlace.name, luckyPlace.place_id);
         }
     </script>
 </body>
