@@ -35,30 +35,60 @@ app.get('/api/restaurants', async (req, res) => {
         let results = googleRes.data.results || [];
 
         // B. 如果有關鍵字且有結果，啟動 Gemini AI 篩選
-        if (keyword && keyword !== "undefined" && results.length > 0 && process.env.GEMINI_KEY) {
-            try {
-                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-                const listForAI = results.map(r => ({ name: r.name, id: r.place_id }));
-                
-                const prompt = `你是一個嚴格的美食家。請從這份清單中篩選出真正符合「${keyword}」的餐廳。
-                原始清單：${JSON.stringify(listForAI)}
-                規則：
-                1. 若選「西式」，排除泰式、中式、日式、麵攤。
-                2. 若選「健康」，排除炸物、速食。
-                3. 嚴格剔除不相關的。
-                4. 只回傳符合的 place_id 陣列，例如: ["id1", "id2"]。不要解釋。`;
+                if (keyword && keyword !== "undefined" && results.length > 0 && process.env.GEMINI_KEY) {
+                    try {
+                        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                        
+                        // 為了讓 AI 判斷更準，我們這次多給它地址，讓它判斷是不是夜市或奇怪的地方
+                        const listForAI = results.map(r => ({ 
+                            name: r.name, 
+                            id: r.place_id,
+                            address: r.vicinity || "" // 多給地址輔助判斷
+                        }));
+                        
+                        // 🔥 這裡是關鍵修改：超級嚴格的提示詞 🔥
+                        const prompt = `
+                        你是一個極度嚴格的美食分類員。使用者想找「${keyword}」類型的店。
+                        請審查以下 Google 搜尋結果：${JSON.stringify(listForAI)}
+                        
+                        🔴 嚴格剔除規則 (必須執行)：
+                        1. 如果使用者找「甜點/下午茶/咖啡」：
+                        - 絕對剔除「中式餐廳」、「熱炒」、「火鍋」、「麵店」、「正餐店」。
+                        - 即使這家餐廳有賣甜湯或冰淇淋，只要它的本業是賣正餐，就剔除。
+                        - 剔除名字看起來像傳統小吃的店（例如：XX小吃、XX麵館）。
+                        
+                        2. 如果使用者找「西式」：
+                        - 剔除所有「泰式」、「越式」、「韓式」、「日式」、「台式」。
+                        - 剔除只賣三明治的早餐店。
+                        
+                        3. 如果使用者找「健康/輕食」：
+                        - 剔除所有「便當店」、「自助餐」、「速食炸物」。
 
-                const aiResult = await model.generateContent(prompt);
-                const aiText = aiResult.response.text();
-                
-                // 解析 AI 回傳的 JSON
-                const validIds = JSON.parse(aiText.match(/\[.*\]/s)[0]);
-                results = results.filter(r => validIds.includes(r.place_id));
-                console.log(`AI 篩選完成，剩餘 ${results.length} 筆`);
-            } catch (aiError) {
-                console.error("AI 篩選失敗 (使用原始名單):", aiError.message);
-            }
-        }
+                        🟢 通過規則：
+                        - 只有當這家店的「主要屬性」完全符合「${keyword}」時才保留。
+                        
+                        請回傳一個 JSON 陣列，只包含符合條件的 place_id，格式範例：["id1", "id2"]。
+                        不要輸出任何 markdown 標記或解釋文字，直接給 JSON。
+                        `;
+
+                        const aiResult = await model.generateContent(prompt);
+                        const aiText = aiResult.response.text();
+                        
+                        // 清理 AI 可能回傳的 Markdown 格式 (```json ... ```)
+                        const cleanText = aiText.replace(/```json|```/g, '').trim();
+                        
+                        const validIds = JSON.parse(cleanText);
+                        
+                        // 紀錄一下篩選前後的數量，方便去 Logs 檢查
+                        console.log(`AI 篩選前：${results.length} 筆 -> AI 篩選後：${validIds.length} 筆`);
+                        
+                        results = results.filter(r => validIds.includes(r.place_id));
+
+                    } catch (aiError) {
+                        console.error("❌ AI 篩選出錯 (已退回原始名單):", aiError.message);
+                        // 這裡不出錯回傳，而是讓它保留原始名單，避免程式崩潰
+                    }
+                }
 
         res.json({ status: "OK", results });
 
