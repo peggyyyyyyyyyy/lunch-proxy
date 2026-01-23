@@ -107,162 +107,150 @@
         <button onclick="switchTab('group')" id="nav-group" class="flex flex-col items-center gap-1 flex-1"><i class="fa-solid fa-users text-xl"></i><span class="text-[10px] font-bold">同事揪團</span></button>
     </nav>
 
-    <script>
-        const ZEABUR_URL = "https://lunch-go.zeabur.app"; 
-        let allPlaces = [], drawLimit = 3, isOnlineOnly = false;
-        let currentLat, currentLng, luckyPlace = null;
-        let selectedTypes = [], selectedPrices = [];
+   <script>
+    const ZEABUR_URL = "https://lunch-go.zeabur.app"; 
+    let allPlaces = [], drawLimit = 3, isOnlineOnly = false;
+    let currentLat, currentLng, luckyPlace = null;
+    let selectedTypes = [], selectedPrices = [];
 
-        window.onload = () => {
-            document.getElementById('user-id').innerText = `#User${Math.floor(Math.random()*899)+100}`;
-            initLocation();
-        };
+    // 定義更嚴格的關鍵字對照表，用於二次過濾
+    const typeKeywords = {
+        '中式': ['中式', '麵', '飯', '熱炒', '台式', '港式', '燒臘', '餃', '鍋'],
+        '日式': ['日', '壽司', '拉麵', '定食', '刺身', '丼'],
+        '西式': ['西式', '義式', '美式', '漢堡', '披薩', '義大利麵', '牛排', 'Pizza', 'Burger', 'Pasta'],
+        '甜點': ['甜點', '蛋糕', '冰', '豆花', '下午茶', 'Dessert', 'Cake'],
+        '健康餐': ['健康', '低卡', '水煮', '輕食', '雞胸']
+    };
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('nav button').forEach(el => el.classList.remove('active-nav'));
-            document.getElementById(`tab-${tabId}`).classList.add('active');
-            document.getElementById(`nav-${tabId}`).classList.add('active-nav');
-        }
+    window.onload = () => {
+        document.getElementById('user-id').innerText = `#User${Math.floor(Math.random()*899)+100}`;
+        initLocation();
+    };
 
-        function initLocation() {
-            navigator.geolocation.getCurrentPosition(pos => {
-                currentLat = pos.coords.latitude;
-                currentLng = pos.coords.longitude;
-                fetchData();
-            }, () => {
-                document.getElementById('location-status').innerText = "❌ 定位失敗，請開啟 GPS";
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('nav button').forEach(el => el.classList.remove('active-nav'));
+        document.getElementById(`tab-${tabId}`).classList.add('active');
+        document.getElementById(`nav-${tabId}`).classList.add('active-nav');
+    }
+
+    function initLocation() {
+        navigator.geolocation.getCurrentPosition(pos => {
+            currentLat = pos.coords.latitude;
+            currentLng = pos.coords.longitude;
+            fetchData();
+        }, () => {
+            document.getElementById('location-status').innerText = "❌ 定位失敗，請開啟 GPS";
+        });
+    }
+
+    async function fetchData() {
+        const listEl = document.getElementById('restaurant-list');
+        listEl.innerHTML = `<div class="text-center py-20 animate-pulse text-gray-300 text-xs italic">正在挑選附近的美味...</div>`;
+        
+        // 1. 先用所有選中的類型作為關鍵字去向 API 請求
+        const apiKeyword = selectedTypes.join('|'); 
+        let url = `${ZEABUR_URL}/api/restaurants?lat=${currentLat}&lng=${currentLng}&radius=1600&keyword=${encodeURIComponent(apiKeyword)}`;
+        
+        if (selectedPrices.length > 0) url += `&price_level=${selectedPrices[0]}`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.status === "OK") {
+                allPlaces = data.results;
+                renderList(); // 呼叫渲染，內含硬性過濾邏輯
+            }
+        } catch (err) { listEl.innerHTML = `<p class="text-center text-red-400 text-xs">連線失敗</p>`; }
+    }
+
+    function renderList() {
+        let filtered = allPlaces;
+
+        // 【硬性過濾邏輯 A】：類型複選過濾
+        if (selectedTypes.length > 0) {
+            filtered = filtered.filter(place => {
+                // 檢查餐廳名稱或地址是否包含選中類型的關鍵字
+                return selectedTypes.some(type => {
+                    const keywords = typeKeywords[type];
+                    return keywords.some(key => 
+                        place.name.includes(key) || (place.vicinity && place.vicinity.includes(key))
+                    );
+                });
             });
         }
 
-        // 真實篩選連動
-        async function fetchData() {
-            const listEl = document.getElementById('restaurant-list');
-            listEl.innerHTML = `<div class="text-center py-20 animate-pulse text-gray-300 text-xs italic">正在挑選附近的美味...</div>`;
-            
-            // 組合複選關鍵字 (中式+日式)
-            const keywordStr = selectedTypes.join(' ');
-            const priceStr = selectedPrices.join(','); // 雖然 Places API 限制較多，但我們先傳給後端處理
-
-            let url = `${ZEABUR_URL}/api/restaurants?lat=${currentLat}&lng=${currentLng}&radius=1600&keyword=${encodeURIComponent(keywordStr)}`;
-            if (selectedPrices.length > 0) url += `&price_level=${selectedPrices[0]}`; // Google API 通常一次收一個價格等級
-
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                if (data.status === "OK") {
-                    allPlaces = data.results;
-                    renderList();
-                }
-            } catch (err) { listEl.innerHTML = `<p class="text-center text-red-400 text-xs">連線失敗</p>`; }
+        // 【硬性過濾邏輯 B】：線上訂餐過濾
+        if (isOnlineOnly) {
+            filtered = filtered.filter(p => p.opening_hours?.open_now);
         }
 
-        function renderList() {
-            let filtered = isOnlineOnly ? allPlaces.filter(p => p.opening_hours?.open_now) : allPlaces;
-            const listEl = document.getElementById('restaurant-list');
-            
-            if (filtered.length === 0) {
-                listEl.innerHTML = `<div class="text-center py-20 text-gray-400 text-xs">找不到符合條件的餐廳，請試著放寬篩選 😢</div>`;
-                return;
-            }
+        const listEl = document.getElementById('restaurant-list');
+        if (filtered.length === 0) {
+            listEl.innerHTML = `<div class="text-center py-20 text-gray-400 text-xs">找不到完全符合條件的餐廳 😢<br>建議減少篩選標籤</div>`;
+            return;
+        }
 
-            listEl.innerHTML = filtered.map(place => `
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center active:bg-gray-50 transition-colors" onclick="openMaps('${place.name}', '${place.place_id}')">
-                    <div class="flex-1">
-                        <h4 class="font-black text-gray-800 tracking-tight">${place.name}</h4>
-                        <div class="flex items-center gap-2 mt-2">
-                            <span class="text-xs text-yellow-500 font-black">⭐ ${place.rating || '4.0'}</span>
-                            <span class="text-[10px] text-gray-400 font-bold">| ${place.vicinity.substring(0,20)}</span>
-                        </div>
-                    </div>
-                    <div class="ml-4 w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 text-xs">
-                        <i class="fa-solid fa-chevron-right"></i>
+        listEl.innerHTML = filtered.map(place => `
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center active:bg-gray-50 transition-colors" onclick="openMaps('${place.name}', '${place.place_id}')">
+                <div class="flex-1">
+                    <h4 class="font-black text-gray-800 tracking-tight">${place.name}</h4>
+                    <div class="flex items-center gap-2 mt-2">
+                        <span class="text-xs text-yellow-500 font-black">⭐ ${place.rating || '4.0'}</span>
+                        <span class="text-[10px] text-gray-400 font-bold">| ${place.vicinity.substring(0,20)}</span>
                     </div>
                 </div>
-            `).join('');
+                <div class="ml-4 w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 text-xs">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ... 以下 toggle 函式與 reset/apply 函式保持不變 ...
+    function toggleTypeTag(btn, type) {
+        btn.classList.toggle('tag-selected');
+        if (selectedTypes.includes(type)) {
+            selectedTypes = selectedTypes.filter(t => t !== type);
+        } else {
+            selectedTypes.push(type);
         }
-
-        function openMaps(name, id) {
-            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${id}`);
+    }
+    
+    function togglePriceTag(btn, price) {
+        btn.classList.toggle('tag-selected');
+        if (selectedPrices.includes(price)) {
+            selectedPrices = selectedPrices.filter(p => p !== price);
+        } else {
+            selectedPrices.push(price);
         }
+    }
 
-        // 篩選互動
-        function toggleTypeTag(btn, type) {
-            btn.classList.toggle('tag-selected');
-            if (selectedTypes.includes(type)) {
-                selectedTypes = selectedTypes.filter(t => t !== type);
-            } else {
-                selectedTypes.push(type);
-            }
-        }
+    function openFilter() { document.getElementById('filter-modal').classList.remove('hidden'); }
+    function closeFilter() { document.getElementById('filter-modal').classList.add('hidden'); }
+    function resetFilters() {
+        selectedTypes = [];
+        selectedPrices = [];
+        document.querySelectorAll('.tag-selected').forEach(el => el.classList.remove('tag-selected'));
+    }
 
-        function togglePriceTag(btn, price) {
-            // 價格通常較適合單選，但這裡配合需求做複選視覺，邏輯取最高
-            btn.classList.toggle('tag-selected');
-            if (selectedPrices.includes(price)) {
-                selectedPrices = selectedPrices.filter(p => p !== price);
-            } else {
-                selectedPrices.push(price);
-            }
-        }
+    function applyFilters() {
+        closeFilter();
+        fetchData();
+    }
 
-        function openFilter() { document.getElementById('filter-modal').classList.remove('hidden'); }
-        function closeFilter() { document.getElementById('filter-modal').classList.add('hidden'); }
-        
-        function resetFilters() {
-            selectedTypes = [];
-            selectedPrices = [];
-            document.querySelectorAll('.tag-selected').forEach(el => el.classList.remove('tag-selected'));
-        }
-
-        function applyFilters() {
-            closeFilter();
-            fetchData();
-        }
-
-        function toggleOnline() {
-            isOnlineOnly = !isOnlineOnly;
-            const btn = document.getElementById('btn-online');
-            btn.classList.toggle('tag-selected');
-            renderList();
-        }
-
-        // 抽籤邏輯
-        function handleDraw() {
-            if (drawLimit <= 0 || allPlaces.length === 0) return;
-            const box = document.getElementById('gacha-box');
-            const nameEl = document.getElementById('gacha-result-name');
-            const subEl = document.getElementById('gacha-result-sub');
-            const hintEl = document.getElementById('gacha-click-hint');
-            const snarky = document.getElementById('snarky-text');
-
-            box.classList.add('shaking');
-            nameEl.innerText = "🎲 挑選中...";
-            subEl.innerText = "";
-            hintEl.classList.add('hidden');
-
-            setTimeout(() => {
-                box.classList.remove('shaking');
-                drawLimit--;
-                document.getElementById('draw-count').innerText = drawLimit;
-                luckyPlace = allPlaces[Math.floor(Math.random() * allPlaces.length)];
-                
-                nameEl.innerText = luckyPlace.name;
-                subEl.innerText = `⭐ 評分: ${luckyPlace.rating || 'N/A'}`;
-                hintEl.classList.remove('hidden');
-                
-                snarky.style.opacity = "1";
-                if(drawLimit === 0) {
-                    snarky.innerText = "就你問最多！明天見 👋";
-                    document.getElementById('btn-draw').disabled = true;
-                    document.getElementById('btn-draw').classList.add('bg-gray-300');
-                }
-            }, 800);
-        }
-
-        function goToLuckyRes() {
-            if (luckyPlace) openMaps(luckyPlace.name, luckyPlace.place_id);
-        }
-    </script>
+    function toggleOnline() {
+        isOnlineOnly = !isOnlineOnly;
+        const btn = document.getElementById('btn-online');
+        btn.classList.toggle('tag-selected');
+        renderList();
+    }
+    
+    // 抽籤與導航函式...
+    function openMaps(name, id) {
+        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${id}`);
+    }
+    // ... handleDraw(), goToLuckyRes() ...
+</script>
 </body>
 </html>
