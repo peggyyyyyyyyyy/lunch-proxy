@@ -1,15 +1,14 @@
 {
   "name": "lunch-go-backend",
   "version": "1.0.0",
-  "description": "Lunch Go 後端 API 服務",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "axios": "^1.7.9",
+    "express": "^4.21.2",
     "cors": "^2.8.5",
-    "express": "^4.21.2"
+    "axios": "^1.7.9",
+    "@google/generative-ai": "^0.21.0"
   }
 }
