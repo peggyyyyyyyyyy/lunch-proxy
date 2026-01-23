@@ -1,6 +1,7 @@
 {
   "name": "lunch-go-backend",
   "version": "1.0.0",
+  "description": "Lunch Go Backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
